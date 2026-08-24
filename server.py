@@ -1065,6 +1065,11 @@ class PlatformStore:
             Column("created_at", String(40), nullable=False),
             Column("updated_at", String(40), nullable=False),
         )
+        self.app_settings = Table(
+            "app_settings", self.metadata,
+            Column("name", String(100), primary_key=True),
+            Column("value", Text, nullable=False),
+        )
         self.customers = Table(
             "customers", self.metadata,
             Column("id", String(40), primary_key=True),
@@ -1241,11 +1246,30 @@ class PlatformStore:
         return self.get_provider_key(int(provider_key_id))
 
     def seed_provider_keys(self, values: list[str]) -> int:
-        if self.list_provider_keys():
-            return 0
-        for index, value in enumerate(values):
-            self.create_provider_key(f"Key #{index + 1}", value)
-        return len(values)
+        marker = "provider_keys_seeded"
+        validated = [self._validate_provider_secret(value) for value in values]
+        with self._lock, self.engine.begin() as connection:
+            if connection.execute(select(self.app_settings.c.name).where(
+                self.app_settings.c.name == marker
+            )).first():
+                return 0
+            imported = 0
+            if not connection.execute(select(self.provider_keys.c.id).limit(1)).first():
+                now = utc_now()
+                for index, secret_value in enumerate(validated):
+                    connection.execute(insert(self.provider_keys).values(
+                        key_id=key_id_for(secret_value),
+                        label=f"Key #{index + 1}",
+                        key_hash=hashlib.sha256(secret_value.encode("utf-8")).hexdigest(),
+                        secret_value=secret_value,
+                        masked_value=self._mask_provider_secret(secret_value),
+                        enabled=True,
+                        created_at=now,
+                        updated_at=now,
+                    ))
+                imported = len(validated)
+            connection.execute(insert(self.app_settings).values(name=marker, value=utc_now()))
+        return imported
 
     def update_provider_key(
         self,

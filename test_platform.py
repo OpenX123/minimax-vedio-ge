@@ -418,6 +418,13 @@ class PlatformTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
+    def test_provider_key_environment_seed_runs_only_once(self):
+        self.assertEqual(self.store.seed_provider_keys(["fixture-seed-key"]), 1)
+        provider_key = self.store.list_provider_keys()[0]
+        self.store.delete_provider_key(provider_key["id"])
+        self.assertEqual(self.store.seed_provider_keys(["fixture-key-that-must-not-return"]), 0)
+        self.assertEqual(self.store.list_provider_keys(), [])
+
 
 @unittest.skipUnless(os.environ.get("MINIMAX_TEST_DATABASE_URL"), "set MINIMAX_TEST_DATABASE_URL for PostgreSQL integration")
 class PostgreSQLPlatformTests(unittest.TestCase):
