@@ -1887,7 +1887,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: Any) -> None:
         # Keep request logs free of headers and request bodies.
-        print(f"[{self.log_date_time_string()}] {self.command} {self.path} - {format % args}")
+        print(f"[{self.log_date_time_string()}] {getattr(self, 'command', '-')} {getattr(self, 'path', '-')} - {format % args}")
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)

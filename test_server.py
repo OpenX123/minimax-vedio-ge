@@ -35,6 +35,16 @@ class FakeTransport:
 
 
 class MiniMaxServerTests(unittest.TestCase):
+    def test_log_message_handles_request_without_path(self):
+        handler = object.__new__(RequestHandler)
+        handler.command = "GET"
+        handler.log_date_time_string = lambda: "now"
+
+        with patch("builtins.print") as output:
+            handler.log_message("%s", "bad request")
+
+        output.assert_called_once_with("[now] GET - - bad request")
+
     def test_admin_page_is_public_but_api_requires_configured_token(self):
         handler = object.__new__(RequestHandler)
         handler.path = "/admin"
