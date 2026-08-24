@@ -35,6 +35,19 @@ class FakeTransport:
 
 
 class MiniMaxServerTests(unittest.TestCase):
+    def test_admin_page_is_not_public(self):
+        handler = object.__new__(RequestHandler)
+        handler.path = "/admin"
+        handler.client_address = ("203.0.113.10", 1234)
+        response = {}
+        handler._send_json = lambda status, payload: response.update(status=status, payload=payload)
+        handler._serve_index = lambda view: response.update(status=200, view=view)
+
+        handler.do_GET()
+
+        self.assertEqual(response["status"], 403)
+        self.assertEqual(response["payload"]["error"]["code"], "ADMIN_LOCAL_ONLY")
+
     def test_legacy_api_guard_blocks_remote_clients(self):
         handler = object.__new__(RequestHandler)
         handler.client_address = ("203.0.113.10", 1234)
