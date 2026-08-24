@@ -1897,7 +1897,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             if parsed.path == "/":
                 self._serve_index("token")
             elif parsed.path in {"/admin", "/admin/"}:
-                self._require_admin_local()
                 self._serve_index("admin")
             elif parsed.path == "/api/admin/keys":
                 self._require_admin()
@@ -2069,16 +2068,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.client_address[0] not in {"127.0.0.1", "::1"}:
             raise AppError("旧版接口仅允许本机访问", 403, "LEGACY_LOCAL_ONLY")
 
-    def _require_admin_local(self) -> None:
-        if self.client_address[0] not in {"127.0.0.1", "::1"}:
-            raise AppError("管理接口仅允许本机访问", 403, "ADMIN_LOCAL_ONLY")
-
     def _require_admin(self) -> None:
-        self._require_admin_local()
         configured = os.environ.get("MINIMAX_ADMIN_TOKEN")
+        if not configured:
+            raise AppError("管理密钥未配置", 503, "ADMIN_TOKEN_NOT_CONFIGURED")
         supplied = self.headers.get("X-Admin-Token", "")
-        if configured and not secrets.compare_digest(configured, supplied):
-            raise AppError("管理令牌无效", 401, "INVALID_ADMIN_TOKEN")
+        if not secrets.compare_digest(configured, supplied):
+            raise AppError("管理密钥无效", 401, "INVALID_ADMIN_TOKEN")
 
     def _serve_index(self, view: str) -> None:
         path = Path(__file__).with_name("index.html")

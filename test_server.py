@@ -35,7 +35,7 @@ class FakeTransport:
 
 
 class MiniMaxServerTests(unittest.TestCase):
-    def test_admin_page_is_not_public(self):
+    def test_admin_page_is_public_but_api_requires_configured_token(self):
         handler = object.__new__(RequestHandler)
         handler.path = "/admin"
         handler.client_address = ("203.0.113.10", 1234)
@@ -45,8 +45,20 @@ class MiniMaxServerTests(unittest.TestCase):
 
         handler.do_GET()
 
-        self.assertEqual(response["status"], 403)
-        self.assertEqual(response["payload"]["error"]["code"], "ADMIN_LOCAL_ONLY")
+        self.assertEqual((response["status"], response["view"]), (200, "admin"))
+
+        handler.headers = {}
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(AppError) as missing:
+                handler._require_admin()
+        self.assertEqual((missing.exception.http_status, missing.exception.code), (503, "ADMIN_TOKEN_NOT_CONFIGURED"))
+
+        with patch.dict(os.environ, {"MINIMAX_ADMIN_TOKEN": "expected"}, clear=True):
+            with self.assertRaises(AppError) as invalid:
+                handler._require_admin()
+            self.assertEqual((invalid.exception.http_status, invalid.exception.code), (401, "INVALID_ADMIN_TOKEN"))
+            handler.headers = {"X-Admin-Token": "expected"}
+            handler._require_admin()
 
     def test_legacy_api_guard_blocks_remote_clients(self):
         handler = object.__new__(RequestHandler)

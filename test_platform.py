@@ -6,6 +6,7 @@ import threading
 import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 from server import (
     AppError,
@@ -60,6 +61,9 @@ class FakeProvider:
 
 class PlatformTests(unittest.TestCase):
     def setUp(self):
+        self.admin_token = "fixture-admin-token"
+        self.admin_env = patch.dict(os.environ, {"MINIMAX_ADMIN_TOKEN": self.admin_token})
+        self.admin_env.start()
         self.directory = tempfile.TemporaryDirectory()
         database_path = Path(self.directory.name) / "platform.db"
         self.store = PlatformStore(f"sqlite+pysqlite:///{database_path.as_posix()}")
@@ -70,6 +74,7 @@ class PlatformTests(unittest.TestCase):
     def tearDown(self):
         self.store.close()
         self.directory.cleanup()
+        self.admin_env.stop()
 
     def wallet(self):
         token = self.store.get_token(self.issued["id"])
@@ -265,6 +270,8 @@ class PlatformTests(unittest.TestCase):
 
         def request(method, path, body=None, headers=None):
             request_headers = {"Content-Type": "application/json", **(headers or {})}
+            if path.startswith("/api/admin/"):
+                request_headers["X-Admin-Token"] = self.admin_token
             connection.request(method, path, json.dumps(body).encode() if body is not None else None, request_headers)
             response = connection.getresponse()
             raw = response.read()
@@ -365,11 +372,12 @@ class PlatformTests(unittest.TestCase):
         connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
 
         def request(method, path, body=None):
+            headers = {"Content-Type": "application/json", "X-Admin-Token": self.admin_token}
             connection.request(
                 method,
                 path,
                 json.dumps(body).encode() if body is not None else None,
-                {"Content-Type": "application/json"},
+                headers,
             )
             response = connection.getresponse()
             raw = response.read()
