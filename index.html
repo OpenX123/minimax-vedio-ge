@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="zh-CN" data-view="__VIEW__">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MiniMax 视频生成</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f4f6fa; color: #172033; }
+    main { width: min(1360px, calc(100% - 32px)); margin: 24px auto 64px; }
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: 7px; font-size: 28px; }
+    h2 { margin-bottom: 14px; font-size: 20px; }
+    .muted { color: #68738a; }
+    .subtle { font-size: 13px; color: #68738a; }
+    .card { margin-top: 18px; padding: 22px; border: 1px solid #e0e6ef; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px #1720330b; }
+    .skip-link { position: fixed; left: 16px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 8px; background: #fff; color: #172033; font-weight: 700; }
+    .skip-link:focus { top: 16px; }
+    .app-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 24px; align-items: start; }
+    .app-shell:not(.nav-ready) { grid-template-columns: 1fr; }
+    .app-shell:not(.nav-ready) .workspace-content { width: min(720px, 100%); margin-inline: auto; }
+    .sidebar { position: sticky; top: 24px; min-height: calc(100vh - 48px); padding: 18px 12px; border-radius: 16px; background: #152033; color: #fff; box-shadow: 0 16px 40px #17203326; }
+    .sidebar-brand { padding: 6px 10px 20px; border-bottom: 1px solid #ffffff1f; }
+    .sidebar-brand strong { display: block; font-size: 18px; }
+    .sidebar-brand span { display: block; margin-top: 4px; color: #b7c2d5; font-size: 13px; }
+    .sidebar-nav { display: grid; gap: 6px; margin-top: 16px; }
+    .nav-item { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 10px; background: transparent; color: #c9d3e3; font-weight: 650; text-align: left; transition: background-color 160ms ease, color 160ms ease; }
+    .nav-item svg { width: 20px; height: 20px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-item:hover { background: #ffffff10; color: #fff; }
+    .nav-item[aria-selected="true"] { background: #fff; color: #1d56bf; }
+    .nav-item:focus-visible { outline: 3px solid #80aaff; outline-offset: 2px; }
+    .sidebar-footer { margin-top: 28px; padding: 16px 10px 4px; border-top: 1px solid #ffffff1f; color: #b7c2d5; font-size: 13px; line-height: 1.5; }
+    .sidebar-footer a { display: inline-block; min-height: 44px; padding-top: 11px; color: #dce6f7; font-weight: 700; text-decoration: none; }
+    .workspace-content { min-width: 0; }
+    .page-header { min-height: 64px; padding: 4px 2px 10px; }
+    .panel { margin-top: 10px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .top-link { color: #2857a9; font-weight: 700; text-decoration: none; }
+    html[data-view="token"] .admin-only { display: none !important; }
+    html[data-view="admin"] .token-only { display: none !important; }
+    html[data-view="token"] #token-access { margin-top: 42px; }
+    .quota-summary { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 14px 0 18px; }
+    .quota-summary strong { color: #172033; }
+    .key-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+    .key-card { padding: 13px; border: 1px solid #e0e6ef; border-radius: 11px; background: #fafbfe; }
+    .key-card.exhausted { background: #fff8ed; border-color: #f0c36d; }
+    .key-card.disabled { background: #fff2f1; border-color: #f0a09a; }
+    .token-list { display: grid; gap: 12px; margin-top: 18px; }
+    .token-card { padding: 16px; border: 1px solid #e0e6ef; border-radius: 11px; background: #fafbfe; }
+    .token-card .grid { margin-top: 14px; }
+    .token-card label { margin-top: 0; }
+    button.danger { background: #fff0ef; color: #b42318; }
+    .key-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
+    .key-count { margin-top: 8px; font-size: 13px; }
+    .progress { height: 7px; margin-top: 9px; overflow: hidden; border-radius: 9px; background: #e6ebf3; }
+    .progress > span { display: block; height: 100%; border-radius: inherit; background: #2864d7; }
+    .exhausted .progress > span { background: #da8b13; }
+    .disabled .progress > span { background: #c93b32; }
+    label { display: block; margin: 16px 0 7px; font-weight: 650; }
+    textarea, select, input[type="text"], input[type="password"], input[type="number"], input[type="url"], input[type="file"] { width: 100%; border: 1px solid #ccd4e0; border-radius: 9px; padding: 11px 12px; font: inherit; background: #fff; }
+    textarea { min-height: 140px; resize: vertical; }
+    textarea:focus, select:focus, input:focus { outline: 3px solid #dbe7ff; border-color: #3971e8; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .settings-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .grid label { margin-top: 0; }
+    .checks { display: flex; flex-wrap: wrap; gap: 18px; margin: 18px 0; }
+    .checks label { margin: 0; font-weight: 500; }
+    button, .download { display: inline-block; border: 0; border-radius: 9px; padding: 10px 15px; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; }
+    button { background: #2864d7; color: #fff; }
+    button.secondary { background: #eef3fb; color: #2857a9; }
+    button:disabled { opacity: .55; cursor: wait; }
+    button:focus-visible, .download:focus-visible { outline: 3px solid #b9d0ff; outline-offset: 2px; }
+    .download { background: #e8f1ff; color: #1d56bf; }
+    .status { min-height: 24px; margin-top: 16px; white-space: pre-wrap; }
+    .status.error { color: #b42318; }
+    .status.success { color: #087443; }
+    .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+    .meta div { padding: 12px; border-radius: 9px; background: #f5f7fb; overflow: hidden; }
+    .meta strong { display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    video { display: block; width: 100%; max-height: 520px; aspect-ratio: 16 / 9; object-fit: contain; margin-top: 14px; border-radius: 10px; background: #10141d; }
+    .history-list { display: grid; gap: 13px; }
+    .history-item { padding: 15px; border: 1px solid #e0e6ef; border-radius: 11px; background: #fafbfe; }
+    .history-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+    .history-prompt { margin: 11px 0; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .history-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: #68738a; }
+    .history-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #e9eef7; color: #526078; font-size: 12px; font-weight: 700; }
+    .tag.success { background: #e4f6ed; color: #087443; }
+    .tag.processing { background: #e8f1ff; color: #1d56bf; }
+    .tag.failed { background: #ffebe9; color: #b42318; }
+    .notice { padding: 12px 14px; border-radius: 9px; background: #eef5ff; color: #234a85; line-height: 1.5; }
+    #quote { font-variant-numeric: tabular-nums; }
+    .notice.error { background: #ffebe9; color: #b42318; }
+    details.advanced { margin: 18px 0; border: 1px solid #e0e6ef; border-radius: 10px; padding: 0 14px; }
+    details.advanced summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: #2857a9; font-weight: 700; }
+    details.advanced > div:last-child { padding-bottom: 14px; }
+    [hidden] { display: none !important; }
+    .secret-output { margin-top: 14px; padding: 13px; border-radius: 9px; background: #101827; color: #e8eef9; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .asset-fields { margin-top: 14px; padding: 14px; border: 1px dashed #bcc8da; border-radius: 10px; background: #fafbfe; }
+    .drop-zone { display: grid; place-items: center; gap: 5px; min-height: 132px; margin: 0; padding: 20px; border: 2px dashed #bcc8da; border-radius: 10px; color: #526078; text-align: center; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+    .drop-zone:hover, .drop-zone.dragging { border-color: #3971e8; background: #eef5ff; }
+    .drop-zone.has-file { border-color: #70b996; background: #f0faf5; }
+    .drop-zone:focus-visible { outline: 3px solid #b9d0ff; outline-offset: 2px; }
+    .drop-zone svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+    .drop-zone strong { color: #172033; }
+    .upload-feedback { min-height: 21px; margin-top: 7px; color: #68738a; }
+    .upload-feedback.error { color: #b42318; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+    @media (max-width: 980px) {
+      .grid, .meta { grid-template-columns: 1fr; }
+      .toolbar, .history-head { align-items: stretch; flex-direction: column; }
+    }
+    @media (max-width: 640px) {
+      main { width: min(100% - 24px, 760px); margin-top: 12px; }
+      .app-shell { grid-template-columns: 1fr; gap: 14px; }
+      .sidebar { position: static; min-height: 0; padding: 12px; }
+      .sidebar-brand { padding: 4px 8px 12px; }
+      .sidebar-nav { display: flex; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; }
+      .nav-item { width: auto; min-width: max-content; }
+      .sidebar-footer { display: none; }
+      html[data-view="token"] #token-access { margin-top: 20px; }
+    }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#workspace-content">跳到主要内容</a>
+<main>
+<div id="app-shell" class="app-shell">
+  <aside id="sidebar" class="sidebar" aria-label="功能导航" hidden>
+    <div class="sidebar-brand">
+      <strong>MiniMax Console</strong>
+      <span id="sidebar-role">视频生成工作台</span>
+    </div>
+    <nav class="sidebar-nav" aria-label="主要功能">
+      <button class="nav-item admin-only" type="button" data-target="keys" aria-controls="panel-keys" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="3"></circle><path d="m10.5 13.5 8-8M16 8l2 2M14 10l2 2"></path></svg>
+        <span>上游 Key 管理</span>
+      </button>
+      <button class="nav-item admin-only" type="button" data-target="tokens" aria-controls="panel-tokens" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 19c.5-4 2.5-6 5.5-6s5 2 5.5 6M16 8h5M18.5 5.5v5"></path></svg>
+        <span>令牌与额度</span>
+      </button>
+      <button class="nav-item" type="button" data-target="create" aria-controls="panel-create" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="m10 9 5 3-5 3z"></path></svg>
+        <span id="create-nav-label">创建视频</span>
+      </button>
+      <button class="nav-item" type="button" data-target="history" aria-controls="panel-history" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2-5.3L4 9"></path><path d="M4 4v5h5M12 8v4l3 2"></path></svg>
+        <span>历史记录</span>
+      </button>
+      <button id="switch-token" class="nav-item token-only" type="button" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"></path></svg>
+        <span>更换令牌</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebar-account">尚未连接访问令牌</div>
+      <a id="sidebar-exit" href="/admin">管理员入口</a>
+    </div>
+  </aside>
+
+  <div id="workspace-content" class="workspace-content" tabindex="-1">
+    <header class="toolbar page-header">
+      <div>
+        <h1 id="page-title">MiniMax 视频生成</h1>
+        <div id="page-subtitle" class="muted">输入访问令牌，开始生成视频</div>
+      </div>
+      <a id="view-link" class="top-link" href="/admin">管理员入口</a>
+    </header>
+
+  <div id="panel-keys" class="panel admin-only" data-panel="keys" role="region" aria-label="上游 Key 管理" hidden>
+  <section class="card">
+    <div class="toolbar">
+      <div>
+        <h2>上游 Key 管理</h2>
+        <div class="subtle">Key 原文保存在平台数据库中，网页和接口只显示掩码；修改后立即生效。</div>
+      </div>
+      <button id="refresh-status" class="secondary" type="button">刷新状态</button>
+    </div>
+    <div class="grid">
+      <div><label for="admin-token">管理令牌（如已配置）</label><input id="admin-token" type="password" autocomplete="off"></div>
+      <div><label for="provider-key-label">Key 名称</label><input id="provider-key-label" type="text" value="MiniMax Key"></div>
+      <div><label for="provider-key-value">MiniMax Key</label><input id="provider-key-value" type="password" autocomplete="off" placeholder="输入完整 Key"></div>
+    </div>
+    <div class="checks">
+      <button id="create-provider-key" type="button">新增 Key</button>
+      <span class="subtle">停用只阻止新任务，已绑定任务仍可继续查询；有历史绑定的 Key 不允许删除。</span>
+    </div>
+    <div id="key-output" class="notice" aria-live="polite">尚未执行 Key 管理操作。</div>
+    <div id="quota-summary" class="quota-summary muted" aria-live="polite">正在读取 Key 状态…</div>
+    <div id="key-grid" class="key-grid"></div>
+  </section>
+  </div>
+
+  <div id="panel-tokens" class="panel admin-only" data-panel="tokens" role="region" aria-label="令牌与额度" hidden>
+  <section class="card">
+    <div class="toolbar">
+      <div>
+        <h2>令牌管理</h2>
+        <div class="subtle">每个令牌独立管理额度；令牌 ID 自动递增，令牌原文只在创建时显示一次。</div>
+      </div>
+      <button id="refresh-tokens" class="secondary" type="button">刷新列表</button>
+    </div>
+    <div class="grid">
+      <div><label for="token-name">令牌名称</label><input id="token-name" type="text" value="主令牌"></div>
+      <div><label for="initial-balance">初始充值（元，1:1）</label><input id="initial-balance" type="number" min="0" step="0.01" value="10"></div>
+    </div>
+    <div class="checks">
+      <button id="create-token" type="button">新增令牌</button>
+      <span class="subtle">充值 1 元，余额增加 1 元；售价以创建页报价为准。</span>
+    </div>
+    <div id="admin-output" class="notice" aria-live="polite">尚未执行管理操作。</div>
+    <div id="token-list" class="token-list" aria-live="polite"><div class="muted">正在读取令牌…</div></div>
+  </section>
+  </div>
+
+  <div id="panel-create" class="panel" data-panel="create" role="region" aria-label="创建视频" hidden>
+  <section id="token-access" class="card">
+    <h2>输入访问令牌</h2>
+    <div class="subtle">令牌只保存在当前页面内存中，关闭或刷新页面后自动清除。</div>
+    <div class="grid">
+      <div style="grid-column: span 2"><label for="access-token">访问令牌</label><input id="access-token" type="password" autocomplete="off" placeholder="mmx_live_..."></div>
+      <div><label>&nbsp;</label><button id="connect-token" type="button">开始使用</button></div>
+    </div>
+    <div id="token-account" class="notice" aria-live="polite">请输入访问令牌。令牌仅保存在当前页面内存中。</div>
+  </section>
+
+  <section class="card token-workspace" hidden>
+    <h2>创建视频</h2>
+    <form id="generate-form">
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" maxlength="2000" required placeholder="描述你想生成的视频，例如：一只橘猫坐在窗边，午后阳光缓慢移动，镜头固定，电影感，细节清晰。"></textarea>
+      <div class="subtle"><span id="prompt-count">0</span>/2000</div>
+
+      <div class="grid" style="margin-top: 18px">
+        <div>
+          <label for="model">模型</label>
+          <select id="model">
+            <option>正在加载模型…</option>
+          </select>
+        </div>
+        <div><label for="mode">生成模式</label><select id="mode"></select></div>
+        <div><label>预计费用</label><div id="quote" class="notice" aria-live="polite">-</div></div>
+      </div>
+
+      <div id="asset-fields" class="asset-fields" hidden>
+        <div id="first-frame-fields" hidden>
+          <input id="first-frame-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+          <label id="first-frame-drop" class="drop-zone" for="first-frame-file" role="button" tabindex="0" aria-describedby="first-frame-feedback">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"></path><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></svg>
+            <strong>点击选择或拖拽参考图到这里</strong>
+            <span>支持 JPG、PNG、WebP</span>
+          </label>
+          <div id="first-frame-feedback" class="upload-feedback" aria-live="polite">尚未选择图片</div>
+          <label for="first-frame-url">或首帧公网 URL</label><input id="first-frame-url" type="url" placeholder="https://...">
+        </div>
+      </div>
+
+      <details class="advanced" open>
+        <summary>更多设置</summary>
+        <div>
+          <div class="grid settings-grid">
+            <div><label for="duration">时长</label><select id="duration"></select></div>
+            <div><label for="resolution">分辨率</label><select id="resolution"></select></div>
+          </div>
+          <div class="checks">
+            <label><input id="prompt-optimizer" type="checkbox" checked> 自动优化 Prompt</label>
+            <label><input id="fast-pretreatment" type="checkbox"> 快速预处理</label>
+            <label><input id="aigc-watermark" type="checkbox"> 添加 AIGC 水印</label>
+          </div>
+        </div>
+      </details>
+      <button id="submit" type="submit">创建视频任务</button>
+    </form>
+
+    <div id="status" class="status muted" aria-live="polite"></div>
+    <div id="meta" class="meta" hidden>
+      <div>任务 ID<strong id="task-id">-</strong></div>
+      <div>计费<strong id="key-label">-</strong></div>
+      <div>状态<strong id="task-status">-</strong></div>
+      <div>尺寸<strong id="video-size">-</strong></div>
+    </div>
+    <div id="result"></div>
+  </section>
+  </div>
+
+  <div id="panel-history" class="panel" data-panel="history" role="region" aria-label="历史记录" hidden>
+  <section class="card token-workspace" hidden>
+    <div class="toolbar">
+      <div>
+        <h2>历史记录</h2>
+        <div class="subtle">按访问令牌隔离保存在平台数据库中；上游 Key 单独保存，永不随历史接口返回。</div>
+      </div>
+      <button id="refresh-history" class="secondary" type="button">刷新历史</button>
+    </div>
+    <div id="history" class="history-list"><div class="muted">正在读取历史记录…</div></div>
+  </section>
+  </div>
+  </div>
+</div>
+</main>
+<script>
+  const isAdmin = document.documentElement.dataset.view === "admin";
+  const combinations = {};
+  let modelCatalog = [];
+  const form = document.querySelector("#generate-form");
+  const prompt = document.querySelector("#prompt");
+  const model = document.querySelector("#model");
+  const duration = document.querySelector("#duration");
+  const resolution = document.querySelector("#resolution");
+  const mode = document.querySelector("#mode");
+  const fastPretreatment = document.querySelector("#fast-pretreatment");
+  const firstFrameFile = document.querySelector("#first-frame-file");
+  const firstFrameDrop = document.querySelector("#first-frame-drop");
+  const firstFrameFeedback = document.querySelector("#first-frame-feedback");
+  const submit = document.querySelector("#submit");
+  const status = document.querySelector("#status");
+  const meta = document.querySelector("#meta");
+  const result = document.querySelector("#result");
+  const history = document.querySelector("#history");
+  let pollTimer = null;
+  let currentTaskId = null;
+  const historyCards = new Map();
+  const appShell = document.querySelector("#app-shell");
+  const sidebar = document.querySelector("#sidebar");
+  const tokenAccess = document.querySelector("#token-access");
+  const allowedPanels = new Set(isAdmin ? ["keys", "tokens", "create", "history"] : ["create", "history"]);
+
+  function activatePanel(requested, updateUrl = false, focusContent = false) {
+    const name = allowedPanels.has(requested) ? requested : (isAdmin ? "keys" : "create");
+    document.querySelectorAll("[data-panel]").forEach(panel => { panel.hidden = panel.dataset.panel !== name; });
+    document.querySelectorAll(".nav-item[data-target]").forEach(item => {
+      item.setAttribute("aria-selected", String(item.dataset.target === name));
+    });
+    if (updateUrl) window.history.pushState({ panel: name }, "", "#" + name);
+    if (focusContent) {
+      const heading = document.querySelector(`[data-panel="${name}"] section:not([hidden]) h2`);
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      }
+    }
+    return name;
+  }
+
+  function showTokenGate() {
+    if (isAdmin) return;
+    sidebar.hidden = true;
+    appShell.classList.remove("nav-ready");
+    tokenAccess.hidden = false;
+    tokenAccess.classList.remove("connected");
+    document.querySelectorAll(".token-workspace").forEach(section => { section.hidden = true; });
+    activatePanel("create");
+  }
+
+  if (isAdmin) {
+    document.title = "MiniMax 管理后台";
+    document.querySelector("#page-title").textContent = "MiniMax 管理后台";
+    document.querySelector("#page-subtitle").textContent = "上游 Key 池、令牌额度、CRUD 与生成验收";
+    document.querySelector("#view-link").href = "/";
+    document.querySelector("#view-link").textContent = "打开用户端";
+    document.querySelector("#sidebar-role").textContent = "管理员工作台";
+    document.querySelector("#create-nav-label").textContent = "生成验收";
+    document.querySelector("#sidebar-exit").href = "/";
+    document.querySelector("#sidebar-exit").textContent = "打开用户端";
+    sidebar.hidden = false;
+    appShell.classList.add("nav-ready");
+    document.querySelectorAll(".token-workspace").forEach(section => { section.hidden = false; });
+    activatePanel(location.hash.slice(1));
+  } else {
+    showTokenGate();
+  }
+
+  document.querySelectorAll(".nav-item[data-target]").forEach(item => {
+    item.addEventListener("click", event => {
+      const name = activatePanel(item.dataset.target, true, event.detail === 0);
+      if (name === "history") loadHistory();
+      if (name === "tokens") loadTokens();
+    });
+  });
+
+  window.addEventListener("popstate", () => activatePanel(location.hash.slice(1)));
+
+  function accessToken() {
+    return document.querySelector("#access-token").value.trim();
+  }
+
+  function tokenHeaders(extra = {}) {
+    const token = accessToken();
+    if (!token) throw new Error("请先输入并连接访问令牌");
+    return { Authorization: "Bearer " + token, ...extra };
+  }
+
+  function updateOptions() {
+    const catalog = modelCatalog.find(item => item.id === model.value);
+    if (!catalog) return;
+    const previousMode = mode.value;
+    mode.replaceChildren();
+    const modeNames = { text: "文生视频", first_frame: "图生视频", first_last: "首尾帧", reference: "多模态参考", subject: "主体参考" };
+    const modeOrder = ["text", "first_frame", "first_last", "reference", "subject"];
+    [...catalog.modes].sort((a, b) => modeOrder.indexOf(a) - modeOrder.indexOf(b)).forEach(value => mode.add(new Option(modeNames[value] || value, value)));
+    if (catalog.modes.includes(previousMode)) mode.value = previousMode;
+    updateModeOptions();
+  }
+
+  function updateModeOptions() {
+    const catalog = modelCatalog.find(item => item.id === model.value);
+    if (!catalog) return;
+    const options = catalog.mode_combinations[mode.value] || [];
+    combinations[model.value] = options;
+    duration.innerHTML = "";
+    resolution.innerHTML = "";
+    [...new Set(options.map(item => item.duration))].forEach(value => duration.add(new Option(value + " 秒", value)));
+    [...new Set(options.map(item => item.resolution))].forEach(value => resolution.add(new Option(value, value)));
+    duration.value = options.some(item => item.duration === 10) ? "10" : String(options[0].duration);
+    resolution.value = options.find(item => item.duration === Number(duration.value)).resolution;
+    fastPretreatment.disabled = !model.value.startsWith("MiniMax-Hailuo-");
+    if (fastPretreatment.disabled) fastPretreatment.checked = false;
+    prompt.maxLength = 2000;
+    document.querySelector("#prompt-count").nextSibling.textContent = "/" + prompt.maxLength;
+    updateAssetFields();
+    updateQuote();
+  }
+
+  function updateAssetFields() {
+    const value = mode.value;
+    document.querySelector("#asset-fields").hidden = value === "text";
+    document.querySelector("#first-frame-fields").hidden = value !== "first_frame";
+  }
+
+  function updateQuote() {
+    const option = (combinations[model.value] || []).find(item =>
+      item.duration === Number(duration.value) && item.resolution === resolution.value
+    );
+    document.querySelector("#quote").textContent = option
+      ? "售价 " + formatYuan(option.price_fen) + " · 官方 " + formatYuan(option.official_price_fen) + " · 约 " + (option.price_fen * 10 / option.official_price_fen).toFixed(1) + " 折"
+      : "-";
+  }
+
+  function syncResolution() {
+    const options = combinations[model.value].filter(item => item.duration === Number(duration.value));
+    if (!options.some(item => item.resolution === resolution.value)) resolution.value = options[0].resolution;
+    updateQuote();
+  }
+
+  function syncDuration() {
+    const options = combinations[model.value].filter(item => item.resolution === resolution.value);
+    if (!options.some(item => item.duration === Number(duration.value))) duration.value = options[0].duration;
+    updateQuote();
+  }
+
+  function setStatus(message, kind = "muted") {
+    status.textContent = message;
+    status.className = "status " + kind;
+  }
+
+  function addText(parent, text, className = "") {
+    const node = document.createElement("div");
+    node.textContent = text || "";
+    if (className) node.className = className;
+    parent.appendChild(node);
+    return node;
+  }
+
+  function formatYuan(fen) {
+    return "¥" + (Number(fen) / 100).toFixed(2);
+  }
+
+  function renderQuota(data) {
+    const summary = document.querySelector("#quota-summary");
+    summary.replaceChildren();
+    addText(summary, "统计日：" + data.quota_day);
+    addText(summary, "每 Key 配额：" + data.daily_quota + " 条");
+    addText(summary, "可用 Key：" + data.available_keys + "/" + data.configured_keys);
+
+    const grid = document.querySelector("#key-grid");
+    grid.replaceChildren();
+    if (!(data.keys || []).length) {
+      addText(grid, "暂无上游 Key，请在上方新增。", "muted");
+      return;
+    }
+    for (const item of data.keys || []) {
+      const card = document.createElement("div");
+      const cardState = item.state === "quota_exhausted" ? "exhausted" : item.state === "disabled" ? "disabled" : "";
+      card.className = "key-card " + cardState;
+      const head = document.createElement("div");
+      head.className = "key-head";
+      addText(head, "#" + item.id + " · " + item.key_label);
+      const state = item.state === "ready" ? "可用" : item.state === "quota_exhausted" ? "今日已满" : item.state === "cooldown" ? "冷却中" : "已停用";
+      addText(head, state, "tag");
+      card.appendChild(head);
+      addText(card, item.masked_value + " · 标识 " + item.key_id, "subtle");
+      addText(card, "今日已用 " + item.used_today + " / " + data.daily_quota + "，剩余 " + item.remaining_today + " 条", "key-count");
+      const progress = document.createElement("div");
+      progress.className = "progress";
+      const fill = document.createElement("span");
+      fill.style.width = Math.min(100, item.used_today / data.daily_quota * 100) + "%";
+      progress.appendChild(fill);
+      card.appendChild(progress);
+
+      const fields = document.createElement("div");
+      fields.className = "grid";
+      fields.style.marginTop = "14px";
+      const labelWrap = document.createElement("div");
+      const labelNode = document.createElement("label");
+      const labelInput = document.createElement("input");
+      labelInput.type = "text";
+      labelInput.id = "provider-key-label-" + item.id;
+      labelInput.value = item.label;
+      labelNode.htmlFor = labelInput.id;
+      labelNode.textContent = "名称";
+      labelWrap.append(labelNode, labelInput);
+
+      const enabledWrap = document.createElement("div");
+      const enabledNode = document.createElement("label");
+      const enabledInput = document.createElement("input");
+      enabledInput.type = "checkbox";
+      enabledInput.id = "provider-key-enabled-" + item.id;
+      enabledInput.checked = item.enabled;
+      enabledNode.htmlFor = enabledInput.id;
+      enabledNode.textContent = "启用状态";
+      enabledWrap.append(enabledNode, enabledInput, document.createTextNode(" 启用"));
+
+      const secretWrap = document.createElement("div");
+      const secretNode = document.createElement("label");
+      const secretInput = document.createElement("input");
+      secretInput.type = "password";
+      secretInput.id = "provider-key-secret-" + item.id;
+      secretInput.autocomplete = "off";
+      secretInput.placeholder = "留空则不更换";
+      secretNode.htmlFor = secretInput.id;
+      secretNode.textContent = "更换 Key";
+      secretWrap.append(secretNode, secretInput);
+      fields.append(labelWrap, enabledWrap, secretWrap);
+      card.appendChild(fields);
+
+      const actions = document.createElement("div");
+      actions.className = "checks";
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.textContent = "保存";
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "danger";
+      deleteButton.textContent = "删除";
+      actions.append(saveButton, deleteButton);
+      card.appendChild(actions);
+
+      saveButton.addEventListener("click", async () => {
+        const payload = { label: labelInput.value, enabled: enabledInput.checked };
+        if (secretInput.value.trim()) payload.api_key = secretInput.value.trim();
+        try {
+          await readJson(await fetch("/api/admin/keys/" + item.id, {
+            method: "PATCH", headers: adminHeaders(), body: JSON.stringify(payload)
+          }));
+          showKeyOutput("Key #" + item.id + " 已保存");
+          secretInput.value = "";
+          await loadStatus();
+        } catch (error) { showKeyOutput(error.message, "notice error"); }
+      });
+      deleteButton.addEventListener("click", async () => {
+        if (!confirm("确认删除 Key #" + item.id + "？已有历史任务绑定时会拒绝删除。")) return;
+        try {
+          await readJson(await fetch("/api/admin/keys/" + item.id, { method: "DELETE", headers: adminHeaders() }));
+          showKeyOutput("Key #" + item.id + " 已删除");
+          await loadStatus();
+        } catch (error) { showKeyOutput(error.message, "notice error"); }
+      });
+      grid.appendChild(card);
+    }
+  }
+
+  function showTask(data) {
+    meta.hidden = false;
+    document.querySelector("#task-id").textContent = data.id || data.task_id || currentTaskId || "-";
+    const fee = data.charged_fen ? "已扣 " + formatYuan(data.charged_fen) : data.quoted_fen ? "预扣 " + formatYuan(data.quoted_fen) : "-";
+    document.querySelector("#key-label").textContent = fee;
+    document.querySelector("#task-status").textContent = data.status || "-";
+    document.querySelector("#video-size").textContent = data.video_width && data.video_height ? data.video_width + " × " + data.video_height : "-";
+    if (data.error) setStatus(data.error, "error");
+  }
+
+  function renderVideo(parent, url, label) {
+    const title = document.createElement("div");
+    title.className = "subtle";
+    title.textContent = label || "视频预览";
+    parent.appendChild(title);
+    const video = document.createElement("video");
+    video.controls = true;
+    video.preload = "metadata";
+    video.playsInline = true;
+    video.muted = true;
+    video.setAttribute("aria-label", label || "视频预览");
+    video.src = url;
+    parent.appendChild(video);
+    return video;
+  }
+
+  async function loadProtectedVideo(parent, downloadUrl, label) {
+    const response = await fetch(downloadUrl, { headers: tokenHeaders(), cache: "no-store" });
+    if (!response.ok) throw new Error("视频下载失败（" + response.status + "）");
+    const blobUrl = URL.createObjectURL(await response.blob());
+    parent.replaceChildren();
+    const video = renderVideo(parent, blobUrl, label);
+    const link = document.createElement("a");
+    link.className = "download";
+    link.href = blobUrl;
+    link.download = "minimax-video.mp4";
+    link.textContent = "下载视频";
+    parent.appendChild(link);
+    video.addEventListener("error", () => URL.revokeObjectURL(blobUrl), { once: true });
+    return video;
+  }
+
+  function statusTag(statusValue) {
+    const tag = document.createElement("span");
+    const normalized = String(statusValue || "").toLowerCase();
+    const stateClass = ["success", "succeeded"].includes(normalized) ? "success" : ["fail", "failed", "cancelled"].includes(normalized) ? "failed" : "processing";
+    tag.className = "tag " + stateClass;
+    tag.textContent = statusValue || "Unknown";
+    return tag;
+  }
+
+  function createHistoryCard() {
+    const card = document.createElement("article");
+    card.className = "history-item";
+    const head = document.createElement("div");
+    head.className = "history-head";
+    const title = document.createElement("strong");
+    const tag = statusTag("");
+    head.appendChild(title);
+    head.appendChild(tag);
+    card.appendChild(head);
+
+    const promptNode = document.createElement("div");
+    promptNode.className = "history-prompt";
+    card.appendChild(promptNode);
+
+    const metadata = document.createElement("div");
+    metadata.className = "history-meta";
+    card.appendChild(metadata);
+
+    const error = document.createElement("div");
+    error.className = "status error";
+    error.hidden = true;
+    card.appendChild(error);
+
+    const actions = document.createElement("div");
+    actions.className = "history-actions";
+    actions.hidden = true;
+    const link = document.createElement("a");
+    link.className = "download";
+    link.textContent = "下载视频";
+    actions.appendChild(link);
+    card.appendChild(actions);
+
+    const previewTitle = document.createElement("div");
+    previewTitle.className = "subtle";
+    previewTitle.textContent = "历史视频预览";
+    previewTitle.hidden = true;
+    card.appendChild(previewTitle);
+    const video = document.createElement("video");
+    video.controls = true;
+    video.preload = "metadata";
+    video.playsInline = true;
+    video.muted = true;
+    video.setAttribute("aria-label", "历史视频预览");
+    video.hidden = true;
+    card.appendChild(video);
+    return { card, title, tag, promptNode, metadata, error, actions, link, previewTitle, video };
+  }
+
+  function updateStatusTag(tag, statusValue) {
+    const normalized = String(statusValue || "").toLowerCase();
+    const stateClass = ["success", "succeeded"].includes(normalized) ? "success" : ["fail", "failed", "cancelled"].includes(normalized) ? "failed" : "processing";
+    tag.className = "tag " + stateClass;
+    tag.textContent = statusValue || "Unknown";
+  }
+
+  function renderHistory(items) {
+    if (!items.length) {
+      for (const entry of historyCards.values()) entry.card.remove();
+      historyCards.clear();
+      history.replaceChildren();
+      addText(history, "暂无历史记录", "muted");
+      return;
+    }
+    const activeIds = new Set(items.map(item => item.task_id));
+    for (const [taskId, entry] of historyCards) {
+      if (!activeIds.has(taskId)) {
+        entry.card.remove();
+        historyCards.delete(taskId);
+      }
+    }
+    items.forEach((item, index) => {
+      let entry = historyCards.get(item.task_id);
+      if (!entry) {
+        entry = createHistoryCard();
+        historyCards.set(item.task_id, entry);
+      }
+      entry.title.textContent = (item.model || "MiniMax 视频") + " · " + (item.key_label || "未知 Key");
+      updateStatusTag(entry.tag, item.status);
+      entry.promptNode.textContent = item.prompt || "旧任务未保存 Prompt";
+      entry.metadata.replaceChildren();
+      addText(entry.metadata, item.created_at || "-");
+      addText(entry.metadata, item.duration ? item.duration + " 秒" : "-");
+      addText(entry.metadata, item.resolution || "-");
+      if (item.video_width && item.video_height) addText(entry.metadata, item.video_width + " × " + item.video_height);
+      entry.error.textContent = item.error || "";
+      entry.error.hidden = !item.error;
+      if (item.preview_url) {
+        entry.actions.hidden = false;
+        entry.link.href = "#";
+        entry.link.textContent = "预览并下载";
+        entry.link.onclick = async event => {
+          event.preventDefault();
+          entry.previewTitle.hidden = false;
+          entry.video.hidden = false;
+          try {
+            const response = await fetch(item.preview_url, { headers: tokenHeaders(), cache: "no-store" });
+            if (!response.ok) throw new Error("视频下载失败（" + response.status + "）");
+            if (entry.video.dataset.blobUrl) URL.revokeObjectURL(entry.video.dataset.blobUrl);
+            const blobUrl = URL.createObjectURL(await response.blob());
+            entry.video.dataset.blobUrl = blobUrl;
+            entry.video.src = blobUrl;
+          } catch (error) {
+            entry.error.textContent = error.message;
+            entry.error.hidden = false;
+          }
+        };
+      } else {
+        entry.actions.hidden = true;
+        entry.previewTitle.hidden = true;
+        entry.video.hidden = true;
+      }
+      const target = history.children[index];
+      if (target !== entry.card) history.insertBefore(entry.card, target || null);
+    });
+    while (history.children.length > items.length) history.lastElementChild.remove();
+  }
+
+  async function readJson(response) {
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error?.message || "请求失败（" + response.status + "）");
+    return data;
+  }
+
+  async function loadStatus() {
+    try {
+      renderQuota(await readJson(await fetch("/api/admin/keys", { headers: adminHeaders(), cache: "no-store" })));
+    } catch (error) {
+      document.querySelector("#quota-summary").textContent = error.message;
+    }
+  }
+
+  async function loadHistory() {
+    if (!accessToken()) {
+      renderHistory([]);
+      return;
+    }
+    try {
+      const data = await readJson(await fetch("/v1/videos?limit=50", { headers: tokenHeaders(), cache: "no-store" }));
+      renderHistory((data.items || []).map(item => ({
+        ...item,
+        task_id: item.id,
+        key_label: item.mode,
+        preview_url: item.download_url
+      })));
+    } catch (error) {
+      history.replaceChildren();
+      addText(history, error.message, "status error");
+    }
+  }
+
+  async function pollTask(taskId) {
+    if (pollTimer) clearTimeout(pollTimer);
+    try {
+      const data = await readJson(await fetch("/v1/videos/" + encodeURIComponent(taskId), { headers: tokenHeaders(), cache: "no-store" }));
+      showTask(data);
+      const normalized = String(data.status || "").toLowerCase();
+      if (["success", "succeeded"].includes(normalized) && data.download_url) {
+        await loadProtectedVideo(result, data.download_url, "实时视频预览");
+        setStatus("视频生成成功，已加载预览", "success");
+        submit.disabled = false;
+        if (isAdmin) await loadStatus();
+        await loadHistory();
+        return;
+      }
+      if (["fail", "failed", "cancelled"].includes(normalized)) {
+        setStatus(data.error || "视频生成失败", "error");
+        submit.disabled = false;
+        if (isAdmin) await loadStatus();
+        await loadHistory();
+        return;
+      }
+      setStatus("任务处理中：" + (data.status || "Unknown") + "（完成后自动显示视频预览）");
+      pollTimer = setTimeout(() => pollTask(taskId), 3000);
+    } catch (error) {
+      setStatus(error.message, "error");
+      submit.disabled = false;
+    }
+  }
+
+  function fileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("图片读取失败"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function showFirstFrameFile(file) {
+    const supported = file && (["image/jpeg", "image/png", "image/webp"].includes(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name));
+    firstFrameDrop.classList.toggle("has-file", Boolean(supported));
+    firstFrameFeedback.className = "upload-feedback" + (file && !supported ? " error" : "");
+    firstFrameFeedback.textContent = supported ? "已选择：" + file.name : (file ? "图片格式不支持，请选择 JPG、PNG 或 WebP" : "尚未选择图片");
+    if (!supported) firstFrameFile.value = "";
+    return supported;
+  }
+
+  async function imageValue(fileSelector, urlSelector) {
+    const file = document.querySelector(fileSelector).files[0];
+    return file ? fileAsDataUrl(file) : document.querySelector(urlSelector).value.trim();
+  }
+
+  async function buildVideoPayload() {
+    const payload = {
+      model: model.value,
+      mode: mode.value,
+      prompt: prompt.value,
+      duration: Number(duration.value),
+      resolution: resolution.value,
+      prompt_optimizer: document.querySelector("#prompt-optimizer").checked,
+      fast_pretreatment: fastPretreatment.checked,
+      aigc_watermark: document.querySelector("#aigc-watermark").checked
+    };
+    if (mode.value === "first_frame") {
+      payload.first_frame_image = await imageValue("#first-frame-file", "#first-frame-url");
+    }
+    return payload;
+  }
+
+  async function loadModels() {
+    modelCatalog = (await readJson(await fetch("/v1/models", { cache: "no-store" }))).data || [];
+    model.replaceChildren();
+    modelCatalog.forEach(item => model.add(new Option(item.id, item.id)));
+    if (modelCatalog.some(item => item.id === "MiniMax-Hailuo-2.3-Fast")) model.value = "MiniMax-Hailuo-2.3-Fast";
+    updateOptions();
+  }
+
+  function adminHeaders() {
+    const token = document.querySelector("#admin-token").value;
+    return { "Content-Type": "application/json", ...(token ? { "X-Admin-Token": token } : {}) };
+  }
+
+  function showAdminOutput(message, kind = "notice") {
+    const output = document.querySelector("#admin-output");
+    output.className = kind;
+    output.textContent = message;
+  }
+
+  function showKeyOutput(message, kind = "notice") {
+    const output = document.querySelector("#key-output");
+    output.className = kind;
+    output.textContent = message;
+  }
+
+  function renderTokens(items) {
+    const list = document.querySelector("#token-list");
+    list.replaceChildren();
+    if (!items.length) {
+      addText(list, "暂无令牌", "muted");
+      return;
+    }
+    for (const token of items) {
+      const card = document.createElement("article");
+      card.className = "token-card";
+      const head = document.createElement("div");
+      head.className = "key-head";
+      addText(head, "#" + token.id + " · " + token.name);
+      addText(head, token.enabled ? "已启用" : "已停用", "tag " + (token.enabled ? "success" : "failed"));
+      card.appendChild(head);
+      addText(card, (token.prefix || "mmx_live_") + "… · 创建于 " + token.created_at, "subtle");
+      addText(card, "余额 " + formatYuan(token.balance_fen) + " · 冻结 " + formatYuan(token.reserved_fen) + " · 可用 " + formatYuan(token.available_fen), "key-count");
+
+      const fields = document.createElement("div");
+      fields.className = "grid";
+      const nameWrap = document.createElement("div");
+      const nameLabel = document.createElement("label");
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.id = "token-name-" + token.id;
+      nameInput.value = token.name;
+      nameLabel.htmlFor = nameInput.id;
+      nameLabel.textContent = "令牌名称";
+      nameWrap.append(nameLabel, nameInput);
+
+      const statusWrap = document.createElement("div");
+      const statusLabel = document.createElement("label");
+      const enabledInput = document.createElement("input");
+      enabledInput.type = "checkbox";
+      enabledInput.id = "token-enabled-" + token.id;
+      enabledInput.checked = token.enabled;
+      statusLabel.htmlFor = enabledInput.id;
+      statusLabel.textContent = "启用状态";
+      statusWrap.append(statusLabel, enabledInput, document.createTextNode(" 启用"));
+
+      const rechargeWrap = document.createElement("div");
+      const rechargeLabel = document.createElement("label");
+      const rechargeInput = document.createElement("input");
+      rechargeInput.type = "number";
+      rechargeInput.id = "token-recharge-" + token.id;
+      rechargeInput.min = "0.01";
+      rechargeInput.step = "0.01";
+      rechargeInput.value = "10";
+      rechargeLabel.htmlFor = rechargeInput.id;
+      rechargeLabel.textContent = "充值金额（元）";
+      rechargeWrap.append(rechargeLabel, rechargeInput);
+      fields.append(nameWrap, statusWrap, rechargeWrap);
+      card.appendChild(fields);
+
+      const actions = document.createElement("div");
+      actions.className = "checks";
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.textContent = "保存";
+      const rechargeButton = document.createElement("button");
+      rechargeButton.type = "button";
+      rechargeButton.className = "secondary";
+      rechargeButton.textContent = "充值";
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "danger";
+      deleteButton.textContent = "删除";
+      actions.append(saveButton, rechargeButton, deleteButton);
+      card.appendChild(actions);
+
+      saveButton.addEventListener("click", async () => {
+        try {
+          const updated = await readJson(await fetch("/api/admin/tokens/" + token.id, {
+            method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ name: nameInput.value, enabled: enabledInput.checked })
+          }));
+          showAdminOutput("令牌 #" + updated.id + " 已保存");
+          await loadTokens();
+        } catch (error) { showAdminOutput(error.message, "notice error"); }
+      });
+      rechargeButton.addEventListener("click", async () => {
+        try {
+          const updated = await readJson(await fetch("/api/admin/tokens/" + token.id + "/recharge", {
+            method: "POST", headers: adminHeaders(), body: JSON.stringify({ amount_yuan: Number(rechargeInput.value) })
+          }));
+          showAdminOutput("令牌 #" + updated.id + " 充值完成，余额 " + formatYuan(updated.balance_fen));
+          await loadTokens();
+        } catch (error) { showAdminOutput(error.message, "notice error"); }
+      });
+      deleteButton.addEventListener("click", async () => {
+        if (!confirm("确认删除令牌 #" + token.id + "？删除后立即停止访问，历史和账本仍会保留。")) return;
+        try {
+          await readJson(await fetch("/api/admin/tokens/" + token.id, { method: "DELETE", headers: adminHeaders() }));
+          showAdminOutput("令牌 #" + token.id + " 已删除");
+          await loadTokens();
+        } catch (error) { showAdminOutput(error.message, "notice error"); }
+      });
+      list.appendChild(card);
+    }
+  }
+
+  async function loadTokens() {
+    if (!isAdmin) return;
+    try {
+      const data = await readJson(await fetch("/api/admin/tokens", { headers: adminHeaders(), cache: "no-store" }));
+      renderTokens(data.items || []);
+    } catch (error) {
+      const list = document.querySelector("#token-list");
+      list.replaceChildren();
+      addText(list, error.message, "status error");
+    }
+  }
+
+  async function connectToken() {
+    const account = await readJson(await fetch("/v1/account", { headers: tokenHeaders(), cache: "no-store" }));
+    const accountText = "余额 " + formatYuan(account.balance_fen) + " · 冻结 " + formatYuan(account.reserved_fen) + " · 可用 " + formatYuan(account.available_fen);
+    document.querySelector("#token-account").textContent = "令牌 #" + account.token_id + " · " + accountText;
+    document.querySelector("#sidebar-account").textContent = accountText;
+    document.querySelector("#token-account").className = "notice";
+    document.querySelector("#token-access").classList.add("connected");
+    document.querySelectorAll(".token-workspace").forEach(section => { section.hidden = false; });
+    if (!isAdmin) {
+      tokenAccess.hidden = true;
+      sidebar.hidden = false;
+      appShell.classList.add("nav-ready");
+      document.querySelector("#page-subtitle").textContent = "选择左侧功能，创建视频或查看历史记录";
+    }
+    activatePanel("create", !isAdmin, true);
+    await loadHistory();
+  }
+
+  document.querySelector("#create-token").addEventListener("click", async () => {
+    try {
+      const data = await readJson(await fetch("/api/admin/tokens", {
+        method: "POST", headers: adminHeaders(), body: JSON.stringify({
+          name: document.querySelector("#token-name").value,
+          initial_balance_yuan: Number(document.querySelector("#initial-balance").value)
+        })
+      }));
+      showAdminOutput("令牌 #" + data.id + " 已创建，请立即复制，离开后无法再次查看：\n" + data.api_key, "secret-output");
+      document.querySelector("#access-token").value = data.api_key;
+      await loadTokens();
+    } catch (error) { showAdminOutput(error.message, "notice error"); }
+  });
+
+  document.querySelector("#create-provider-key").addEventListener("click", async () => {
+    try {
+      const data = await readJson(await fetch("/api/admin/keys", {
+        method: "POST", headers: adminHeaders(), body: JSON.stringify({
+          label: document.querySelector("#provider-key-label").value,
+          api_key: document.querySelector("#provider-key-value").value
+        })
+      }));
+      document.querySelector("#provider-key-value").value = "";
+      showKeyOutput("Key #" + data.id + " 已保存到数据库并立即生效");
+      await loadStatus();
+    } catch (error) { showKeyOutput(error.message, "notice error"); }
+  });
+
+  document.querySelector("#connect-token").addEventListener("click", async () => {
+    try { await connectToken(); } catch (error) {
+      document.querySelector("#token-account").textContent = error.message;
+      document.querySelector("#token-account").className = "notice error";
+      if (!isAdmin) document.querySelectorAll(".token-workspace").forEach(section => { section.hidden = true; });
+    }
+  });
+
+  document.querySelector("#access-token").addEventListener("keydown", event => {
+    if (event.key === "Enter") document.querySelector("#connect-token").click();
+  });
+  document.querySelector("#access-token").addEventListener("input", () => {
+    if (!isAdmin) showTokenGate();
+  });
+
+  document.querySelector("#switch-token").addEventListener("click", () => {
+    document.querySelector("#access-token").value = "";
+    document.querySelector("#token-account").textContent = "请输入访问令牌。令牌仅保存在当前页面内存中。";
+    document.querySelector("#sidebar-account").textContent = "尚未连接访问令牌";
+    document.querySelector("#page-subtitle").textContent = "输入访问令牌，开始生成视频";
+    showTokenGate();
+    document.querySelector("#access-token").focus();
+  });
+
+  prompt.addEventListener("input", () => { document.querySelector("#prompt-count").textContent = prompt.value.length; });
+  firstFrameFile.addEventListener("change", () => {
+    const file = firstFrameFile.files[0];
+    if (showFirstFrameFile(file)) document.querySelector("#first-frame-url").value = "";
+  });
+  firstFrameDrop.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); firstFrameFile.click(); }
+  });
+  let firstFrameDragDepth = 0;
+  firstFrameDrop.addEventListener("dragenter", event => { event.preventDefault(); firstFrameDragDepth += 1; firstFrameDrop.classList.add("dragging"); });
+  firstFrameDrop.addEventListener("dragover", event => { event.preventDefault(); });
+  firstFrameDrop.addEventListener("dragleave", () => { firstFrameDragDepth = Math.max(0, firstFrameDragDepth - 1); if (!firstFrameDragDepth) firstFrameDrop.classList.remove("dragging"); });
+  firstFrameDrop.addEventListener("drop", event => {
+    event.preventDefault();
+    firstFrameDragDepth = 0;
+    firstFrameDrop.classList.remove("dragging");
+    const file = event.dataTransfer.files[0];
+    if (!showFirstFrameFile(file)) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    firstFrameFile.files = transfer.files;
+    document.querySelector("#first-frame-url").value = "";
+  });
+  model.addEventListener("change", updateOptions);
+  mode.addEventListener("change", updateModeOptions);
+  duration.addEventListener("change", syncResolution);
+  resolution.addEventListener("change", syncDuration);
+  document.querySelector("#refresh-status").addEventListener("click", loadStatus);
+  document.querySelector("#refresh-tokens").addEventListener("click", loadTokens);
+  document.querySelector("#refresh-history").addEventListener("click", loadHistory);
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (pollTimer) clearTimeout(pollTimer);
+    submit.disabled = true;
+    result.replaceChildren();
+    setStatus("正在创建任务…");
+    try {
+      const data = await readJson(await fetch("/v1/videos", {
+        method: "POST",
+        headers: tokenHeaders({ "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }),
+        body: JSON.stringify(await buildVideoPayload())
+      }));
+      currentTaskId = data.id;
+      showTask(data);
+      setStatus("任务已创建，已预扣 " + formatYuan(data.quoted_fen) + "，等待生成…");
+      if (isAdmin) await loadStatus();
+      await loadHistory();
+      pollTask(currentTaskId);
+    } catch (error) {
+      setStatus(error.message, "error");
+      submit.disabled = false;
+      if (isAdmin) await loadStatus();
+    }
+  });
+
+  loadModels().catch(error => setStatus(error.message, "error"));
+  if (isAdmin) {
+    loadStatus();
+    loadTokens();
+  }
+  loadHistory();
+  if (isAdmin) setInterval(loadStatus, 10000);
+</script>
+</body>
+</html>
