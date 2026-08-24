@@ -9,6 +9,7 @@ from server import (
     AppError,
     KeyPool,
     MiniMaxService,
+    RequestHandler,
     TaskStore,
     UpstreamError,
     UpstreamTransportError,
@@ -34,6 +35,16 @@ class FakeTransport:
 
 
 class MiniMaxServerTests(unittest.TestCase):
+    def test_legacy_api_guard_blocks_remote_clients(self):
+        handler = object.__new__(RequestHandler)
+        handler.client_address = ("203.0.113.10", 1234)
+        with self.assertRaises(AppError) as raised:
+            handler._require_legacy_local()
+        self.assertEqual((raised.exception.http_status, raised.exception.code), (403, "LEGACY_LOCAL_ONLY"))
+
+        handler.client_address = ("127.0.0.1", 1234)
+        handler._require_legacy_local()
+
     def test_parse_keys_deduplicates_and_supports_comma_or_newline(self):
         self.assertEqual(parse_key_values(" a,b\n b, c "), ["a", "b", "c"])
 

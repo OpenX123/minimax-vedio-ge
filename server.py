@@ -1892,6 +1892,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         try:
+            if parsed.path.startswith("/api/") and not parsed.path.startswith("/api/admin/"):
+                self._require_legacy_local()
             if parsed.path == "/":
                 self._serve_index("token")
             elif parsed.path in {"/admin", "/admin/"}:
@@ -1957,6 +1959,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         try:
             path = urlparse(self.path).path
+            if path.startswith("/api/") and not path.startswith("/api/admin/"):
+                self._require_legacy_local()
             payload = self._read_json()
             if path == "/api/generate":
                 self._send_json(200, self.app.service.create_task(payload))
@@ -2059,6 +2063,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if not authorization.startswith("Bearer "):
             raise AppError("缺少 Bearer 访问令牌", 401, "TOKEN_REQUIRED")
         return authorization[7:].strip()
+
+    def _require_legacy_local(self) -> None:
+        if self.client_address[0] not in {"127.0.0.1", "::1"}:
+            raise AppError("旧版接口仅允许本机访问", 403, "LEGACY_LOCAL_ONLY")
 
     def _require_admin(self) -> None:
         if self.client_address[0] not in {"127.0.0.1", "::1"}:
@@ -2197,9 +2205,10 @@ def main() -> None:
     poller.start()
 
     handler_type = type("MiniMaxRequestHandler", (RequestHandler,), {"app": app})
+    host = os.environ.get("MINIMAX_HOST", "127.0.0.1")
     port = int(os.environ.get("MINIMAX_PORT", "8000"))
-    server = ThreadingHTTPServer(("127.0.0.1", port), handler_type)
-    print(f"MiniMax 本地视频工具已启动：http://127.0.0.1:{port}")
+    server = ThreadingHTTPServer((host, port), handler_type)
+    print(f"MiniMax 视频工具已启动：http://{host}:{port}")
     print(f"已从数据库加载 {pool.status()['configured_keys']} 个 Key，首次导入 {imported_keys} 个，任务绑定文件：{TASKS_PATH}")
     print("令牌平台 API 已启用；管理接口仅接受本机请求")
     try:
